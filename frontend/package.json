@@ -1,0 +1,13 @@
+{
+  "name": "med-chat-frontend",
+  "version": "1.0.0",
+  "description": "Medical Graph Database Frontend UI",
+  "private": true,
+  "scripts": {
+    "start": "http-server -p 5000 -o",
+    "serve": "http-server -p 5000"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

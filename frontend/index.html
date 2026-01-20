@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Med-Chat | Medical Graph Database Assistant</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>🏥</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo">
+        <span class="logo-icon">🏥</span>
+        <h1>Med-Chat</h1>
+      </div>
+      
+      <div class="sidebar-section">
+        <h3>Authentication</h3>
+        
+        <div class="form-group">
+          <label for="role">I am a</label>
+          <select id="role">
+            <option value="doctor">Doctor</option>
+            <option value="patient">Patient</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="userId">My ID</label>
+          <input type="text" id="userId" placeholder="e.g., D001 or P001" value="D001">
+        </div>
+        
+        <div class="form-group" id="patientSelectGroup">
+          <label for="patientId">Query Patient</label>
+          <select id="patientId">
+            <option value="P001">P001 - John Doe</option>
+            <option value="P002">P002 - Jane Smith</option>
+            <option value="P003">P003 - Robert Johnson</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="sidebar-section">
+        <h3>Quick Queries</h3>
+        <div class="quick-queries">
+          <button onclick="quickQuery('diseases')">🦠 Diseases</button>
+          <button onclick="quickQuery('medications')">💊 Medications</button>
+          <button onclick="quickQuery('symptoms')">🤒 Symptoms</button>
+          <button onclick="quickQuery('lab_results')">🧪 Lab Results</button>
+          <button onclick="quickQuery('allergies')">⚠️ Allergies</button>
+          <button onclick="quickQuery('profile')">👤 Profile</button>
+        </div>
+      </div>
+      
+      <div class="sidebar-section status">
+        <h3>System Status</h3>
+        <div class="status-item">
+          <span class="status-dot" id="serverStatus"></span>
+          <span>Backend API</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot neo4j"></span>
+          <span>Neo4j Graph DB</span>
+        </div>
+        <div class="status-item">
+          <span class="status-dot groq"></span>
+          <span>Groq LLM</span>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Chat Area -->
+    <main class="chat-container">
+      <header class="chat-header">
+        <h2>Medical Assistant</h2>
+        <p>Powered by Neo4j Knowledge Graph + Groq LLM</p>
+      </header>
+      
+      <div class="chat-messages" id="chatMessages">
+        <div class="message assistant">
+          <div class="message-content">
+            <p>Hello! I'm your medical assistant. I can help you query patient information from the medical graph database.</p>
+            <p>Try asking questions like:</p>
+            <ul>
+              <li>"What diseases does P001 have?"</li>
+              <li>"What medications is patient P002 taking?"</li>
+              <li>"Show me P003's lab results"</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <form class="chat-input" id="chatForm">
+        <input 
+          type="text" 
+          id="questionInput" 
+          placeholder="Ask about patient medical records (e.g., What is P001's diagnosis?)"
+          autocomplete="off"
+          required
+        >
+        <button type="submit" id="sendBtn">
+          <span>Send</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"/>
+          </svg>
+        </button>
+      </form>
+    </main>
+  </div>
+  
+  <script src="js/parsing.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
