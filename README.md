@@ -2,15 +2,6 @@
 
 🏥 **RAG-based Medical Chat Assistant** leveraging Neo4j Knowledge Graph + Supabase pgvector for semantic search, powered by Groq LLM and HuggingFace embeddings.
 
-**Built for CEO presentation demonstrating:**
-- ✅ Neo4j Graph Database integration with hybrid search
-- ✅ Supabase pgvector for semantic vector embeddings
-- ✅ Free HuggingFace embeddings (all-MiniLM-L6-v2)
-- ✅ Groq LLM for fast responses
-- ✅ Interactive Neo4j graph visualization
-- ✅ Toggle-based embeddings feature control
-- ✅ Production-ready deployment on Render
-
 ## 🏗️ System Architecture
 
 ```
@@ -324,10 +315,7 @@ ENABLE_EMBEDDINGS=no    # Uses only Neo4j graph queries (faster)
 
 | Metric | Value |
 |--------|-------|
-| **Graph Nodes** | 33 |
-| **Graph Edges** | 41 |
-| **Vector Dimensions** | 384 |
-| **Embedding Cache** | ~100 vectors |
+| **Embedding Cache** | Dynamic |
 | **LLM Model** | Groq 120B parameters |
 | **LLM Latency** | < 1s per response |
 | **Vector Search Latency** | < 100ms |
@@ -573,20 +561,6 @@ frontend/
 
 MIT - Open source for educational purposes
 
-## 👥 Contributors
-
-Built for CEO presentation demonstrating production-ready medical AI architecture.
-
-**Key Features Implemented:**
-- ✅ Hybrid Neo4j + pgvector search
-- ✅ Free HuggingFace embeddings
-- ✅ Interactive graph visualization  
-- ✅ Feature toggles (embeddings on/off)
-- ✅ RAG pipeline with Groq LLM
-- ✅ Dark/Light themes
-- ✅ Responsive design
-- ✅ Production deployment ready
-
 ## Project Structure
 
 ```
@@ -661,9 +635,10 @@ Health check endpoint
 ## Graph Schema
 
 ```
-(Patient)──HAS_DISEASE──>(Disease)──PRESENTS_WITH──>(Symptom)
-    │                         │
-    │                         └──<──TREATS──(Drug)
+(Patient)
+    ├──HAS_DISEASE──>(Disease)
+    │                   ├──PRESENTS_WITH──>(Symptom)
+    │                   └──TREATED_BY──>(Drug)
     │
     ├──CURRENTLY_TAKING──>(Drug)
     ├──ALLERGIC_TO──>(Allergen)

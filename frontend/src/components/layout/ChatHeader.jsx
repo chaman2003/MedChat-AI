@@ -3,7 +3,7 @@
  * Header for the main chat area - shows current doctor/patient context
  */
 import React from 'react';
-import { ThemeToggle } from '../common';
+import { ThemeToggle, StatusIndicator } from '../common';
 
 /**
  * @param {object} props
@@ -11,8 +11,9 @@ import { ThemeToggle } from '../common';
  * @param {function} props.onToggleTheme - Theme toggle callback
  * @param {object} props.selectedDoctor - Currently selected doctor
  * @param {object} props.selectedPatient - Currently selected patient
+ * @param {boolean} props.serverOnline - Server online status
  */
-export function ChatHeader({ darkMode, onToggleTheme, selectedDoctor, selectedPatient }) {
+export function ChatHeader({ darkMode, onToggleTheme, selectedDoctor, selectedPatient, serverOnline }) {
   return (
     <header className="chat-header">
       <div className="header-left">
@@ -29,7 +30,14 @@ export function ChatHeader({ darkMode, onToggleTheme, selectedDoctor, selectedPa
           )}
         </p>
       </div>
-      <ThemeToggle darkMode={darkMode} onToggle={onToggleTheme} />
+      <div className="header-right" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', fontSize: '12px' }}>
+          <StatusIndicator label="API" online={serverOnline} />
+          <StatusIndicator label="DB" online={serverOnline} className="neo4j" />
+          <StatusIndicator label="LLM" online={serverOnline} className="groq" />
+        </div>
+        <ThemeToggle darkMode={darkMode} onToggle={onToggleTheme} />
+      </div>
     </header>
   );
 }

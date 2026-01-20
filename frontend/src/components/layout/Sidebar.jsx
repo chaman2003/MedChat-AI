@@ -101,8 +101,28 @@ export function Sidebar({ users, serverOnline, onQuickQuery }) {
         </div>
 
         {selectedPatient && (
-          <div className="patient-info">
-            <small>Age: {selectedPatient.age} | {selectedPatient.gender} | {selectedPatient.blood_type}</small>
+          <div className="patient-info-card">
+            <div className="patient-info-header">
+              <div className="avatar">👤</div>
+              <div>
+                <div className="name">{selectedPatient.name}</div>
+                <div className="id">{selectedPatient.id}</div>
+              </div>
+            </div>
+            <div className="patient-info-details">
+              <div className="patient-info-item">
+                <span className="label">Age</span>
+                <span className="value">{selectedPatient.age} years</span>
+              </div>
+              <div className="patient-info-item">
+                <span className="label">Gender</span>
+                <span className="value">{selectedPatient.gender}</span>
+              </div>
+              <div className="patient-info-item">
+                <span className="label">Blood Type</span>
+                <span className="value">{selectedPatient.blood_type}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -127,14 +147,6 @@ export function Sidebar({ users, serverOnline, onQuickQuery }) {
         >
           🕸️ Visualize Graph
         </button>
-      </div>
-
-      {/* System Status */}
-      <div className="sidebar-section status">
-        <h3>System Status</h3>
-        <StatusIndicator label="Backend API" online={serverOnline} />
-        <StatusIndicator label="Neo4j Graph DB" online={serverOnline} className="neo4j" />
-        <StatusIndicator label="Groq LLM" online={serverOnline} className="groq" />
       </div>
     </aside>
   );

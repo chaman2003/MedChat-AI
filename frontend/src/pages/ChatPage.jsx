@@ -56,6 +56,7 @@ export default function ChatPage() {
           onToggleTheme={toggleTheme}
           selectedDoctor={users.selectedDoctor}
           selectedPatient={users.selectedPatient}
+          serverOnline={serverOnline}
         />
 
         {/* Messages List */}
