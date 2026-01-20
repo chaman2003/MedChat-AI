@@ -224,15 +224,15 @@ export default function App() {
         <div className="sidebar-section status">
           <h3>System Status</h3>
           <div className="status-item">
-            <span className={`status-dot ${serverOnline ? 'online' : ''}`}></span>
+            <p className={`status-dot ${serverOnline ? 'online' : ''}`}></p>
             <span>Backend API</span>
           </div>
           <div className="status-item">
-            <span className="status-dot neo4j"></span>
+            <p className="status-dot neo4j"></p>
             <span>Neo4j Graph DB</span>
           </div>
           <div className="status-item">
-            <span className="status-dot groq"></span>
+            <p className="status-dot groq"></p>
             <span>Groq LLM</span>
           </div>
         </div>

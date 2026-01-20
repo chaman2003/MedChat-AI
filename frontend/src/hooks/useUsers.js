@@ -6,6 +6,44 @@ import { useState, useEffect, useCallback } from 'react';
 import { getAllDoctors, getDoctorPatients } from '../api';
 
 /**
+ * Sanitize data by converting non-serializable objects to strings
+ */
+function sanitizeData(obj) {
+  if (!obj) return obj;
+  if (typeof obj !== 'object') return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeData);
+  }
+  
+  const sanitized = {};
+  for (const key in obj) {
+    const value = obj[key];
+    if (value === null || value === undefined) {
+      sanitized[key] = value;
+    } else if (typeof value === 'object' && !Array.isArray(value)) {
+      // Check if it's a Neo4j BigInt object with {low, high}
+      if ('low' in value && 'high' in value) {
+        // Convert BigInt to a proper number if possible
+        const num = (value.high << 32) + value.low;
+        sanitized[key] = num;
+      } else if (value.toString && value.toString() !== '[object Object]') {
+        // Use toString for any object that has a proper toString
+        sanitized[key] = value.toString();
+      } else {
+        // Recursively sanitize nested objects
+        sanitized[key] = sanitizeData(value);
+      }
+    } else if (typeof value === 'object') {
+      sanitized[key] = sanitizeData(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
+/**
  * Custom hook for managing doctors and patients data
  * @returns {object} Users state and methods
  */
@@ -24,10 +62,11 @@ export function useUsers() {
         setLoading(true);
         const response = await getAllDoctors();
         if (response.success) {
-          setDoctors(response.doctors);
+          const sanitizedDoctors = sanitizeData(response.doctors);
+          setDoctors(sanitizedDoctors);
           // Auto-select first doctor
-          if (response.doctors.length > 0) {
-            setSelectedDoctor(response.doctors[0]);
+          if (sanitizedDoctors.length > 0) {
+            setSelectedDoctor(sanitizedDoctors[0]);
           }
         } else {
           setError(response.error || 'Failed to fetch doctors');
@@ -53,10 +92,11 @@ export function useUsers() {
       try {
         const response = await getDoctorPatients(selectedDoctor.id);
         if (response.success) {
-          setPatients(response.patients);
+          const sanitizedPatients = sanitizeData(response.patients);
+          setPatients(sanitizedPatients);
           // Auto-select first patient
-          if (response.patients.length > 0) {
-            setSelectedPatient(response.patients[0]);
+          if (sanitizedPatients.length > 0) {
+            setSelectedPatient(sanitizedPatients[0]);
           } else {
             setSelectedPatient(null);
           }

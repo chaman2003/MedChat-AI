@@ -214,18 +214,18 @@ async function checkDrugInteractions(patientId) {
 async function getGraphByDoctor(doctorId) {
   // Get all nodes and edges related to a specific doctor's patients
   const nodesQuery = `
-    MATCH (d:Doctor {doctor_id: $doctorId})-[:TREATS]->(p:Patient)
-    WITH collect(p) AS patients, d
+    MATCH (d:Doctor {doctor_id: $doctorId})
+    OPTIONAL MATCH (d)-[:TREATS]->(p:Patient)
+    WITH d, collect(DISTINCT p) AS patients
     
-    // Get all related nodes
-    OPTIONAL MATCH (p:Patient)-[]->(related)
-    WHERE p IN patients
-    WITH patients, d, collect(DISTINCT related) AS relatedNodes
+    // Get all related nodes for patients
+    UNWIND patients AS patient
+    OPTIONAL MATCH (patient)-[]->(related)
+    WITH d, patients, collect(DISTINCT related) AS relatedNodes
     
-    // Combine doctor, patients, and related nodes
-    WITH [d] + patients + relatedNodes AS allNodes
-    UNWIND allNodes AS n
-    WITH DISTINCT n
+    // Now combine all nodes by collecting them together
+    UNWIND [d] + patients + relatedNodes AS allNodes
+    WITH DISTINCT allNodes AS n
     WHERE n IS NOT NULL
     RETURN 
       elementId(n) AS id,
@@ -234,21 +234,24 @@ async function getGraphByDoctor(doctorId) {
   `;
 
   const edgesQuery = `
-    MATCH (d:Doctor {doctor_id: $doctorId})-[:TREATS]->(p:Patient)
-    WITH collect(p) AS patients, d
+    MATCH (d:Doctor {doctor_id: $doctorId})
+    OPTIONAL MATCH (d)-[:TREATS]->(p:Patient)
+    WITH d, collect(DISTINCT p) AS patients
     
     // Get edges from doctor to patients
-    MATCH (d)-[r1:TREATS]->(p) WHERE p IN patients
-    WITH patients, collect({source: elementId(d), target: elementId(p), rel: type(r1), props: properties(r1)}) AS doctorEdges
+    UNWIND patients AS patient
+    OPTIONAL MATCH (d)-[r1:TREATS]->(patient)
+    WITH d, patients, collect({source: elementId(d), target: elementId(patient), rel: type(r1), props: properties(r1)}) AS doctorEdges
     
     // Get edges from patients to related nodes
     UNWIND patients AS patient
-    MATCH (patient)-[r]->(related)
+    OPTIONAL MATCH (patient)-[r]->(related)
     WITH doctorEdges, collect({source: elementId(patient), target: elementId(related), rel: type(r), props: properties(r)}) AS patientEdges
     
-    // Combine all edges
+    // Combine and return edges
     WITH doctorEdges + patientEdges AS allEdges
     UNWIND allEdges AS edge
+    WITH edge WHERE edge.source IS NOT NULL AND edge.target IS NOT NULL
     RETURN DISTINCT
       edge.source AS source,
       edge.target AS target,
@@ -288,15 +291,10 @@ async function getGraphByDoctor(doctorId) {
 async function getGraphByPatient(patientId) {
   const nodesQuery = `
     MATCH (p:Patient {patient_id: $patientId})
-    
-    // Get the patient's doctor
     OPTIONAL MATCH (d:Doctor)-[:TREATS]->(p)
-    
-    // Get all related nodes
     OPTIONAL MATCH (p)-[]->(related)
-    
-    // Combine all nodes
-    WITH [p] + collect(DISTINCT d) + collect(DISTINCT related) AS allNodes
+    WITH collect(DISTINCT d) AS doctors, collect(DISTINCT related) AS relatedNodes, p
+    WITH [p] + doctors + relatedNodes AS allNodes
     UNWIND allNodes AS n
     WITH DISTINCT n
     WHERE n IS NOT NULL
@@ -308,19 +306,14 @@ async function getGraphByPatient(patientId) {
 
   const edgesQuery = `
     MATCH (p:Patient {patient_id: $patientId})
-    
-    // Get doctor-patient edge
     OPTIONAL MATCH (d:Doctor)-[r1:TREATS]->(p)
-    WITH p, collect({source: elementId(d), target: elementId(p), rel: type(r1), props: properties(r1)}) AS doctorEdges
+    WITH p, collect(CASE WHEN d IS NOT NULL THEN {source: elementId(d), target: elementId(p), rel: type(r1), props: properties(r1)} END) AS doctorEdges
     
-    // Get patient's outgoing edges
-    MATCH (p)-[r]->(related)
-    WITH doctorEdges, collect({source: elementId(p), target: elementId(related), rel: type(r), props: properties(r)}) AS patientEdges
+    OPTIONAL MATCH (p)-[r]->(related)
+    WITH p, [e IN doctorEdges WHERE e IS NOT NULL] AS doctorEdges, collect(CASE WHEN related IS NOT NULL THEN {source: elementId(p), target: elementId(related), rel: type(r), props: properties(r)} END) AS patientEdges
     
-    // Combine all edges
-    WITH doctorEdges + patientEdges AS allEdges
+    WITH doctorEdges + [e IN patientEdges WHERE e IS NOT NULL] AS allEdges
     UNWIND allEdges AS edge
-    WITH edge WHERE edge.source IS NOT NULL
     RETURN DISTINCT
       edge.source AS source,
       edge.target AS target,
