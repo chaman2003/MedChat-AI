@@ -2,13 +2,14 @@
   "name": "med-chat-backend",
   "version": "1.0.0",
   "description": "Medical Graph Database Backend API with Vector Search",
-  "main": "src/server.js",
+  "main": "src/server.new.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "seed": "node src/seed-neo4j.js",
-    "seed:vectors": "node src/seed-vectors.js",
-    "seed:all": "node src/seed-neo4j.js && node src/seed-vectors.js"
+    "start": "node src/server.new.js",
+    "dev": "nodemon src/server.new.js",
+    "start:old": "node src/server.js",
+    "seed:neo4j": "node src/scripts/seed-neo4j.js",
+    "seed:vectors": "node src/scripts/seed-vectors.js",
+    "seed:all": "node src/scripts/seed-neo4j.js && node src/scripts/seed-vectors.js"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.10",

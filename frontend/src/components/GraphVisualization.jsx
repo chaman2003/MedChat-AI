@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { useNavigate } from 'react-router-dom';
-
-const API_URL = "http://localhost:3001";
+import { getGraphData } from '../api';
 
 // Node colors by type
 const NODE_COLORS = {
@@ -117,13 +116,12 @@ export default function GraphVisualization() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
 
-  // Fetch graph data
+  // Fetch graph data using API module
   useEffect(() => {
     const fetchGraph = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${API_URL}/graph`);
-        const data = await response.json();
+        const data = await getGraphData();
 
         if (data.success) {
           setGraphData(data.graph);

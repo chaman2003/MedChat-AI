@@ -77,7 +77,7 @@
 ```bash
 cd backend
 npm install
-npm start
+npm run dev    # Uses nodemon for auto-reload (server.new.js)
 # Runs on http://localhost:3001
 ```
 
@@ -86,10 +86,10 @@ npm start
 cd frontend
 npm install
 npm run dev
-# Runs on http://localhost:5000
+# Runs on http://localhost:5001 (or next available port)
 ```
 
-Visit **http://localhost:5000** in your browser
+Visit **http://localhost:5001** in your browser
 
 ## 🔑 Environment Configuration
 
@@ -154,7 +154,7 @@ CREATE INDEX ON embeddings USING ivfflat (embedding vector_cosine_ops);
 
 ### Core Chat Endpoint
 ```http
-POST /chat
+POST /api/chat
 Content-Type: application/json
 
 {
@@ -177,7 +177,7 @@ Response:
 
 ### Semantic Vector Search
 ```http
-POST /search
+POST /api/search
 Content-Type: application/json
 
 {
@@ -198,7 +198,7 @@ Response (if ENABLE_EMBEDDINGS=yes):
 
 ### Graph Visualization Data
 ```http
-GET /graph
+GET /api/graph
 
 Response:
 {
@@ -224,28 +224,32 @@ Response:
 
 ### Health Status
 ```http
-GET /health
+GET /api/health
 
 Response:
 {
   "status": "ok",
   "timestamp": "2026-01-21T...",
-  "llm_provider": "groq",
-  "database": "neo4j",
-  "embeddings_enabled": true,
-  "vector_db": "supabase",
-  "embedding_cache": {...}
+  "services": {
+    "llm": { "provider": "groq", "model": "..." },
+    "database": { "type": "neo4j", "connected": true },
+    "embeddings": { "enabled": true, "provider": "huggingface" },
+    "vector_db": { "type": "supabase/pgvector" }
+  }
 }
 ```
 
 ## 💾 Database Seeding
 
 ```bash
-# Seed Neo4j with medical data (patients, diseases, drugs, etc)
-cd backend && npm run seed
+# Seed Neo4j with medical data (3 patients, 5 diseases, 7 drugs, etc)
+cd backend && npm run seed:neo4j
 
-# Seed Supabase with vector embeddings (27 embeddings)
+# Seed Supabase with vector embeddings (if ENABLE_EMBEDDINGS=yes)
 cd backend && npm run seed:vectors
+
+# Seed both at once
+cd backend && npm run seed:all
 ```
 
 Sample data loaded:
@@ -397,36 +401,155 @@ Total Relationships: 41
 
 ## 🛠️ Development
 
-### Backend File Structure
+### Backend File Structure (Modular Architecture)
 ```
 backend/
 ├─ src/
-│  ├─ server.js              (Express app & endpoints)
-│  ├─ neo4j-driver.js        (Neo4j connection)
-│  ├─ chat.js                (RAG pipeline)
-│  ├─ graph-queries.js       (Cypher queries)
-│  ├─ supabase-driver.js     (Vector DB connection)
-│  ├─ embedding-service.js   (HuggingFace integration)
-│  ├─ vector-search.js       (Hybrid search logic)
-│  ├─ seed-neo4j.js          (Data seeding)
-│  └─ seed-vectors.js        (Embedding seeding)
-├─ .env                       (Configuration)
-└─ package.json
+│  ├─ server.new.js              # Entry point - Initialize DB & start server
+│  ├─ app.js                     # Express app configuration with middleware
+│  │
+│  ├─ config/
+│  │  └─ index.js                # Centralized config from environment variables
+│  │
+│  ├─ db/                        # Database Layer
+│  │  ├─ index.js                # Exports neo4j & supabase modules
+│  │  ├─ neo4j/
+│  │  │  ├─ driver.js            # Connection, verifyConnectivity, runQuery
+│  │  │  ├─ queries.js           # All Cypher queries
+│  │  │  └─ index.js             # Re-exports driver + queries
+│  │  └─ supabase/
+│  │     ├─ driver.js            # pgvector connection & operations
+│  │     └─ index.js             # Re-exports
+│  │
+│  ├─ services/                  # Business Logic Layer
+│  │  ├─ index.js                # Exports all services
+│  │  ├─ chat.service.js         # RAG pipeline orchestration
+│  │  ├─ llm.service.js          # Groq LLM API wrapper
+│  │  ├─ entity.service.js       # Extract patient ID & query type
+│  │  ├─ embedding.service.js    # HuggingFace embeddings with caching
+│  │  └─ vector.service.js       # Semantic search + Neo4j enrichment
+│  │
+│  ├─ api/                       # HTTP Layer
+│  │  ├─ index.js                # Exports routes & middleware
+│  │  ├─ controllers/            # HTTP request handlers
+│  │  │  ├─ chat.controller.js
+│  │  │  ├─ graph.controller.js
+│  │  │  ├─ search.controller.js
+│  │  │  ├─ health.controller.js
+│  │  │  └─ index.js
+│  │  ├─ routes/                 # Express route definitions
+│  │  │  ├─ index.js             # Aggregates all routes
+│  │  │  ├─ chat.routes.js
+│  │  │  ├─ graph.routes.js
+│  │  │  ├─ search.routes.js
+│  │  │  └─ health.routes.js
+│  │  └─ middleware/             # Request processing chain
+│  │     ├─ index.js             # Exports all middleware
+│  │     ├─ error.middleware.js  # Global error handler
+│  │     ├─ validation.middleware.js # Input validation
+│  │     └─ logger.middleware.js # Request logging
+│  │
+│  └─ scripts/                   # Database seeding utilities
+│     ├─ seed-neo4j.js           # Populate with test data
+│     └─ seed-vectors.js         # Generate embeddings
+│
+├─ .env                          # Environment variables
+└─ package.json                  # Dependencies & scripts
 ```
 
-### Frontend File Structure
+### Frontend File Structure (Modular Architecture)
 ```
 frontend/
 ├─ src/
-│  ├─ App.jsx                (Main chat interface)
-│  ├─ main.jsx               (React Router setup)
-│  ├─ index.css              (Global styles)
-│  ├─ components/
-│  │  └─ GraphVisualization.jsx  (Graph viz page)
-│  └─ utils/
-│     └─ LLMParser.js        (Markdown rendering)
-├─ vite.config.js
-└─ package.json
+│  ├─ main.jsx                  # Entry point - renders App
+│  ├─ App.jsx                   # Root component
+│  ├─ index.css                 # Global styles
+│  │
+│  ├─ api/                      # API Client Layer
+│  │  ├─ index.js               # Central API exports
+│  │  ├─ config.js              # API base URL & request wrapper
+│  │  ├─ chat.api.js            # sendChatMessage, getChatHistory
+│  │  ├─ graph.api.js           # getGraphData, getGraphStats
+│  │  └─ health.api.js          # checkServerHealth, getServerStatus
+│  │
+│  ├─ hooks/                    # Custom React Hooks (State Management)
+│  │  ├─ index.js               # Central hooks exports
+│  │  ├─ useChat.js             # Chat state: messages, loading, error
+│  │  ├─ useTheme.js            # Theme state: darkMode, toggleTheme
+│  │  ├─ useAuth.js             # Auth state: role, userId, patientId
+│  │  └─ useServerStatus.js     # Server status polling every 10s
+│  │
+│  ├─ components/               # Reusable UI Components
+│  │  ├─ index.js               # Central component exports
+│  │  ├─ GraphVisualization.jsx # Knowledge graph visualization
+│  │  ├─ chat/                  # Chat-specific components
+│  │  │  ├─ ChatMessage.jsx     # Display user/AI messages
+│  │  │  ├─ ChatInput.jsx       # Input form with send button
+│  │  │  ├─ LoadingMessage.jsx  # Loading state indicator
+│  │  │  ├─ QuickQueries.jsx    # Quick query buttons
+│  │  │  └─ index.js
+│  │  ├─ common/                # Reusable utility components
+│  │  │  ├─ ThemeToggle.jsx     # Dark/light mode toggle
+│  │  │  ├─ StatusIndicator.jsx # Server status badge
+│  │  │  └─ index.js
+│  │  └─ layout/                # Page layout components
+│  │     ├─ Sidebar.jsx         # Navigation sidebar
+│  │     ├─ ChatHeader.jsx      # Chat page header
+│  │     └─ index.js
+│  │
+│  ├─ pages/                    # Page-level Components
+│  │  ├─ index.js               # Central page exports
+│  │  ├─ ChatPage.jsx           # Main chat interface
+│  │  └─ VisualizePage.jsx      # Graph visualization page
+│  │
+│  └─ utils/                    # Constants & Utilities
+│     ├─ constants.js           # PATIENTS, ROLES, QUERY_TYPES, COLORS
+│     └─ index.js
+│
+├─ index.html                   # HTML template
+├─ vite.config.js               # Vite configuration
+├─ .env                         # Environment variables
+└─ package.json                 # Dependencies & scripts
+```
+
+### Data Flow Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      FRONTEND                                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Pages (ChatPage, VisualizePage)                                │
+│     ↓ uses                                                      │
+│  Hooks (useChat, useAuth, useTheme, useServerStatus)            │
+│     ↓ calls                                                     │
+│  API Layer (chat.api, graph.api, health.api)                    │
+│     ↓ HTTP requests                                             │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                      BACKEND                                     │
+├─────────────────────────────────────────────────────────────────┤
+│  Routes (chat, graph, search, health)                           │
+│     ↓ delegates to                                              │
+│  Controllers (handle HTTP req/res)                              │
+│     ↓ calls                                                     │
+│  Services (business logic)                                      │
+│     ├─ chat.service (RAG orchestration)                         │
+│     ├─ llm.service (Groq API)                                   │
+│     ├─ entity.service (extraction)                              │
+│     ├─ embedding.service (HuggingFace)                          │
+│     └─ vector.service (semantic search)                         │
+│           ↓ uses                                                │
+│  DB Layer (neo4j, supabase)                                     │
+│     ↓ queries                                                   │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              ↓                           ↓
+     ┌─────────────┐            ┌──────────────────┐
+     │   Neo4j     │            │    Supabase      │
+     │   Graph DB  │            │    pgvector      │
+     └─────────────┘            └──────────────────┘
 ```
 
 ## 🐛 Troubleshooting
