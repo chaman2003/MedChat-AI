@@ -1,13 +1,23 @@
 {
   "name": "med-chat-frontend",
   "version": "1.0.0",
-  "description": "Medical Graph Database Frontend UI",
+  "description": "Medical Graph Database Frontend UI - React",
   "private": true,
+  "type": "module",
   "scripts": {
-    "start": "http-server -p 5000 -o",
-    "serve": "http-server -p 5000"
+    "dev": "vite --port 5000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite --port 5000"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-force-graph-2d": "^1.29.0",
+    "react-router-dom": "^7.12.0"
   },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.8"
   }
 }

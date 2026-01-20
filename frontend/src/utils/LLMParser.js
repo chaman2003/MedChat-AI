@@ -3,7 +3,7 @@
  * Converts markdown-like LLM responses into clean, styled HTML
  */
 
-const LLMParser = {
+export const LLMParser = {
   /**
    * Main entry point - parses raw LLM text into HTML
    * @param {string} text - Raw LLM response
@@ -12,27 +12,8 @@ const LLMParser = {
   parse(text) {
     if (!text) return "";
     
-    // Escape HTML first for safety
-    let content = this.escapeHtml(text);
-    
     // Process different block types
-    content = this.parseBlocks(content);
-    
-    return content;
-  },
-
-  /**
-   * Escape HTML special characters
-   */
-  escapeHtml(text) {
-    const map = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    return this.parseBlocks(text);
   },
 
   /**
@@ -130,7 +111,7 @@ const LLMParser = {
     // Inline code: `code`
     text = text.replace(/`([^`]+)`/g, '<code class="llm-inline-code">$1</code>');
     
-    // Links: [text](url) - but URL was escaped, so we handle carefully
+    // Links: [text](url)
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
     return text;
@@ -357,29 +338,5 @@ const LLMParser = {
     
     const html = `<pre class="llm-code-block${langClass}"><code>${code}</code></pre>`;
     return { html, nextIndex: i };
-  },
-
-  /**
-   * Create an info/warning/success box
-   * Usage: :::info, :::warning, :::success, :::error
-   */
-  parseCalloutBox(type, content) {
-    const icons = {
-      info: 'ℹ️',
-      warning: '⚠️',
-      success: '✅',
-      error: '❌',
-      tip: '💡',
-      note: '📝'
-    };
-    
-    const icon = icons[type] || icons.info;
-    return `<div class="llm-callout llm-callout-${type}">
-      <span class="llm-callout-icon">${icon}</span>
-      <div class="llm-callout-content">${this.parseInline(content)}</div>
-    </div>`;
   }
 };
-
-// Export for use in app.js
-window.LLMParser = LLMParser;
