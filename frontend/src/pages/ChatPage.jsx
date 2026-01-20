@@ -5,14 +5,14 @@
 import React, { useState } from 'react';
 import { Sidebar, ChatHeader } from '../components/layout';
 import { ChatMessage, ChatInput, LoadingMessage } from '../components/chat';
-import { useChat, useTheme, useServerStatus, useAuth } from '../hooks';
+import { useChat, useTheme, useServerStatus, useUsers } from '../hooks';
 
 export default function ChatPage() {
   // Custom hooks
   const { messages, loading, sendMessage, getQuickQuery } = useChat();
   const { darkMode, toggleTheme } = useTheme();
   const { online: serverOnline } = useServerStatus();
-  const auth = useAuth();
+  const users = useUsers();
 
   // Local input state for quick queries
   const [inputValue, setInputValue] = useState('');
@@ -21,7 +21,7 @@ export default function ChatPage() {
    * Handle quick query selection
    */
   const handleQuickQuery = (queryType) => {
-    const patientId = auth.getEffectivePatientId();
+    const patientId = users.selectedPatient?.id || 'P001';
     const query = getQuickQuery(queryType, patientId);
     setInputValue(query);
   };
@@ -31,18 +31,20 @@ export default function ChatPage() {
    */
   const handleSubmit = (message) => {
     sendMessage(message, {
-      role: auth.role,
-      userId: auth.userId,
-      patientId: auth.patientId,
+      role: 'doctor',
+      userId: users.selectedDoctor?.id || 'D001',
+      patientId: users.selectedPatient?.id || 'P001',
+      doctorName: users.selectedDoctor?.name,
+      patientName: users.selectedPatient?.name,
     });
     setInputValue('');
   };
 
   return (
     <div className="app-container">
-      {/* Sidebar with auth controls and quick queries */}
+      {/* Sidebar with doctor/patient selection and quick queries */}
       <Sidebar 
-        auth={auth}
+        users={users}
         serverOnline={serverOnline}
         onQuickQuery={handleQuickQuery}
       />
@@ -51,7 +53,9 @@ export default function ChatPage() {
       <main className="chat-container">
         <ChatHeader 
           darkMode={darkMode} 
-          onToggleTheme={toggleTheme} 
+          onToggleTheme={toggleTheme}
+          selectedDoctor={users.selectedDoctor}
+          selectedPatient={users.selectedPatient}
         />
 
         {/* Messages List */}
@@ -67,8 +71,10 @@ export default function ChatPage() {
           value={inputValue}
           onChange={setInputValue}
           onSubmit={handleSubmit}
-          disabled={loading}
-          placeholder="Ask about patient medical records (e.g., What is P001's diagnosis?)"
+          disabled={loading || !users.selectedPatient}
+          placeholder={users.selectedPatient 
+            ? `Ask about ${users.selectedPatient.name}'s medical records...` 
+            : "Select a patient to start chatting"}
         />
       </main>
     </div>

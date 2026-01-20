@@ -6,3 +6,4 @@ export { useChat } from './useChat';
 export { useTheme } from './useTheme';
 export { useServerStatus } from './useServerStatus';
 export { useAuth } from './useAuth';
+export { useUsers } from './useUsers';

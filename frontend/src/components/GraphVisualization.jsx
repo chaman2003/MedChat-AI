@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { useNavigate } from 'react-router-dom';
-import { getGraphData } from '../api';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getGraphData, getAllDoctors, getDoctorPatients } from '../api';
 
 // Node colors by type
 const NODE_COLORS = {
@@ -30,6 +30,7 @@ const EDGE_COLORS = {
 
 export default function GraphVisualization() {
   const navigate = useNavigate();
+  const location = useLocation();
   const fgRef = useRef();
   const containerRef = useRef();
   
@@ -42,8 +43,16 @@ export default function GraphVisualization() {
   const [isReady, setIsReady] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   
-  // Filters
+  // Doctor/Patient filter state
+  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState(location.state?.doctorId || '');
+  const [selectedPatientId, setSelectedPatientId] = useState(location.state?.patientId || '');
+  const [filterMode, setFilterMode] = useState('all'); // 'all', 'doctor', 'patient'
+  
+  // Node type filters
   const [filters, setFilters] = useState({
+    Doctor: true,
     Patient: true,
     Disease: true,
     Drug: true,
@@ -64,6 +73,40 @@ export default function GraphVisualization() {
       document.body.classList.add('dark-mode');
     }
   }, []);
+
+  // Load doctors list
+  useEffect(() => {
+    const loadDoctors = async () => {
+      try {
+        const response = await getAllDoctors();
+        if (response.success) {
+          setDoctors(response.doctors);
+        }
+      } catch (err) {
+        console.error('Failed to load doctors:', err);
+      }
+    };
+    loadDoctors();
+  }, []);
+
+  // Load patients when doctor changes
+  useEffect(() => {
+    const loadPatients = async () => {
+      if (!selectedDoctorId) {
+        setPatients([]);
+        return;
+      }
+      try {
+        const response = await getDoctorPatients(selectedDoctorId);
+        if (response.success) {
+          setPatients(response.patients);
+        }
+      } catch (err) {
+        console.error('Failed to load patients:', err);
+      }
+    };
+    loadPatients();
+  }, [selectedDoctorId]);
 
   // Handle window resize and initial dimensions
   useEffect(() => {
@@ -116,32 +159,42 @@ export default function GraphVisualization() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, []);
 
-  // Fetch graph data using API module
-  useEffect(() => {
-    const fetchGraph = async () => {
-      try {
-        setLoading(true);
-        const data = await getGraphData();
-
-        if (data.success) {
-          setGraphData(data.graph);
-          setStats({
-            nodes: data.graph.nodes.length,
-            edges: data.graph.links.length,
-            types: data.nodeTypes || {}
-          });
-        } else {
-          setError(data.error || 'Failed to load graph');
-        }
-      } catch (err) {
-        setError(`Connection error: ${err.message}`);
-      } finally {
-        setLoading(false);
+  // Fetch graph data with filters
+  const fetchGraphData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const options = {};
+      if (filterMode === 'doctor' && selectedDoctorId) {
+        options.doctorId = selectedDoctorId;
+      } else if (filterMode === 'patient' && selectedPatientId) {
+        options.patientId = selectedPatientId;
       }
-    };
+      
+      const data = await getGraphData(options);
 
-    fetchGraph();
-  }, []);
+      if (data.success) {
+        setGraphData(data.graph);
+        setStats({
+          nodes: data.graph.nodes.length,
+          edges: data.graph.links.length,
+          types: data.nodeTypes || {}
+        });
+      } else {
+        setError(data.error || 'Failed to load graph');
+      }
+    } catch (err) {
+      setError(`Connection error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterMode, selectedDoctorId, selectedPatientId]);
+
+  // Initial fetch and refetch when filters change
+  useEffect(() => {
+    fetchGraphData();
+  }, [fetchGraphData]);
 
   // Center the graph after data loads and dimensions are ready
   useEffect(() => {
@@ -270,7 +323,7 @@ export default function GraphVisualization() {
   const handleZoomIn = () => fgRef.current?.zoom(fgRef.current.zoom() * 1.5, 300);
   const handleZoomOut = () => fgRef.current?.zoom(fgRef.current.zoom() / 1.5, 300);
   const handleCenter = () => fgRef.current?.zoomToFit(400);
-  const handleRefresh = () => window.location.reload();
+  const handleRefresh = () => fetchGraphData();
 
   if (loading) {
     return (
@@ -319,6 +372,99 @@ export default function GraphVisualization() {
       <div className="graph-layout">
         {/* Sidebar - Filters & Legend */}
         <aside className="graph-sidebar">
+          {/* Doctor/Patient Filter */}
+          <div className="sidebar-section">
+            <h3>👨‍⚕️ Data Filter</h3>
+            <div className="form-group">
+              <label>View Mode</label>
+              <select 
+                value={filterMode} 
+                onChange={(e) => {
+                  setFilterMode(e.target.value);
+                  if (e.target.value === 'all') {
+                    setSelectedDoctorId('');
+                    setSelectedPatientId('');
+                  }
+                }}
+              >
+                <option value="all">All Data</option>
+                <option value="doctor">By Doctor</option>
+                <option value="patient">By Patient</option>
+              </select>
+            </div>
+            
+            {filterMode === 'doctor' && (
+              <div className="form-group">
+                <label>Select Doctor</label>
+                <select 
+                  value={selectedDoctorId} 
+                  onChange={(e) => {
+                    setSelectedDoctorId(e.target.value);
+                    setSelectedPatientId('');
+                  }}
+                >
+                  <option value="">Select a doctor...</option>
+                  {doctors.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.specialty})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {filterMode === 'patient' && (
+              <>
+                <div className="form-group">
+                  <label>Select Doctor First</label>
+                  <select 
+                    value={selectedDoctorId} 
+                    onChange={(e) => {
+                      setSelectedDoctorId(e.target.value);
+                      setSelectedPatientId('');
+                    }}
+                  >
+                    <option value="">Select a doctor...</option>
+                    {doctors.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.specialty})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedDoctorId && (
+                  <div className="form-group">
+                    <label>Select Patient</label>
+                    <select 
+                      value={selectedPatientId} 
+                      onChange={(e) => setSelectedPatientId(e.target.value)}
+                    >
+                      <option value="">Select a patient...</option>
+                      {patients.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.id})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+            
+            {filterMode !== 'all' && (
+              <button 
+                className="reset-filter-btn"
+                onClick={() => {
+                  setFilterMode('all');
+                  setSelectedDoctorId('');
+                  setSelectedPatientId('');
+                }}
+              >
+                ↺ Reset to All Data
+              </button>
+            )}
+          </div>
+
           <div className="sidebar-section">
             <h3>🎛️ Node Filters</h3>
             <div className="filter-list">

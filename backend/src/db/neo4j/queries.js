@@ -4,6 +4,50 @@
  */
 const { runQuery } = require("./driver");
 
+// ==================== DOCTOR QUERIES ====================
+
+async function getAllDoctors() {
+  const cypher = `
+    MATCH (d:Doctor)
+    RETURN d.doctor_id AS id, d.name AS name, d.specialty AS specialty,
+           d.phone AS phone, d.email AS email, d.license_number AS license_number
+    ORDER BY d.name
+  `;
+  return runQuery(cypher);
+}
+
+async function getDoctorById(doctorId) {
+  const cypher = `
+    MATCH (d:Doctor {doctor_id: $doctorId})
+    RETURN d.doctor_id AS id, d.name AS name, d.specialty AS specialty,
+           d.phone AS phone, d.email AS email, d.license_number AS license_number
+  `;
+  return runQuery(cypher, { doctorId });
+}
+
+async function getDoctorPatients(doctorId) {
+  const cypher = `
+    MATCH (d:Doctor {doctor_id: $doctorId})-[r:TREATS]->(p:Patient)
+    RETURN p.patient_id AS id, p.name AS name, p.age AS age, 
+           p.gender AS gender, p.blood_type AS blood_type,
+           r.since AS treating_since, r.primary AS is_primary
+    ORDER BY p.name
+  `;
+  return runQuery(cypher, { doctorId });
+}
+
+async function getAllPatients() {
+  const cypher = `
+    MATCH (p:Patient)
+    OPTIONAL MATCH (d:Doctor)-[:TREATS]->(p)
+    RETURN p.patient_id AS id, p.name AS name, p.age AS age, 
+           p.gender AS gender, p.blood_type AS blood_type,
+           d.doctor_id AS doctor_id, d.name AS doctor_name
+    ORDER BY p.name
+  `;
+  return runQuery(cypher);
+}
+
 // ==================== PATIENT QUERIES ====================
 
 async function getPatientProfile(patientId) {
@@ -165,7 +209,160 @@ async function checkDrugInteractions(patientId) {
   return runQuery(cypher, { patientId });
 }
 
+// ==================== FILTERED GRAPH QUERIES ====================
+
+async function getGraphByDoctor(doctorId) {
+  // Get all nodes and edges related to a specific doctor's patients
+  const nodesQuery = `
+    MATCH (d:Doctor {doctor_id: $doctorId})-[:TREATS]->(p:Patient)
+    WITH collect(p) AS patients, d
+    
+    // Get all related nodes
+    OPTIONAL MATCH (p:Patient)-[]->(related)
+    WHERE p IN patients
+    WITH patients, d, collect(DISTINCT related) AS relatedNodes
+    
+    // Combine doctor, patients, and related nodes
+    WITH [d] + patients + relatedNodes AS allNodes
+    UNWIND allNodes AS n
+    WITH DISTINCT n
+    WHERE n IS NOT NULL
+    RETURN 
+      elementId(n) AS id,
+      labels(n)[0] AS type,
+      properties(n) AS props
+  `;
+
+  const edgesQuery = `
+    MATCH (d:Doctor {doctor_id: $doctorId})-[:TREATS]->(p:Patient)
+    WITH collect(p) AS patients, d
+    
+    // Get edges from doctor to patients
+    MATCH (d)-[r1:TREATS]->(p) WHERE p IN patients
+    WITH patients, collect({source: elementId(d), target: elementId(p), rel: type(r1), props: properties(r1)}) AS doctorEdges
+    
+    // Get edges from patients to related nodes
+    UNWIND patients AS patient
+    MATCH (patient)-[r]->(related)
+    WITH doctorEdges, collect({source: elementId(patient), target: elementId(related), rel: type(r), props: properties(r)}) AS patientEdges
+    
+    // Combine all edges
+    WITH doctorEdges + patientEdges AS allEdges
+    UNWIND allEdges AS edge
+    RETURN DISTINCT
+      edge.source AS source,
+      edge.target AS target,
+      edge.rel AS relationship,
+      edge.props AS props
+  `;
+
+  const [nodesResult, edgesResult] = await Promise.all([
+    runQuery(nodesQuery, { doctorId }),
+    runQuery(edgesQuery, { doctorId }),
+  ]);
+
+  // Process nodes
+  const nodes = nodesResult.map((record) => {
+    const props = record.props || {};
+    const label = props.name || props.patient_id || props.doctor_id || props.test_name || props.icd_code || record.id.slice(-6);
+    return { id: record.id, type: record.type, label, ...props };
+  });
+
+  // Process edges
+  const links = edgesResult.map((record) => ({
+    source: record.source,
+    target: record.target,
+    relationship: record.relationship,
+    ...(record.props || {}),
+  }));
+
+  // Count by type
+  const nodeTypes = nodes.reduce((acc, node) => {
+    acc[node.type] = (acc[node.type] || 0) + 1;
+    return acc;
+  }, {});
+
+  return { nodes, links, nodeTypes };
+}
+
+async function getGraphByPatient(patientId) {
+  const nodesQuery = `
+    MATCH (p:Patient {patient_id: $patientId})
+    
+    // Get the patient's doctor
+    OPTIONAL MATCH (d:Doctor)-[:TREATS]->(p)
+    
+    // Get all related nodes
+    OPTIONAL MATCH (p)-[]->(related)
+    
+    // Combine all nodes
+    WITH [p] + collect(DISTINCT d) + collect(DISTINCT related) AS allNodes
+    UNWIND allNodes AS n
+    WITH DISTINCT n
+    WHERE n IS NOT NULL
+    RETURN 
+      elementId(n) AS id,
+      labels(n)[0] AS type,
+      properties(n) AS props
+  `;
+
+  const edgesQuery = `
+    MATCH (p:Patient {patient_id: $patientId})
+    
+    // Get doctor-patient edge
+    OPTIONAL MATCH (d:Doctor)-[r1:TREATS]->(p)
+    WITH p, collect({source: elementId(d), target: elementId(p), rel: type(r1), props: properties(r1)}) AS doctorEdges
+    
+    // Get patient's outgoing edges
+    MATCH (p)-[r]->(related)
+    WITH doctorEdges, collect({source: elementId(p), target: elementId(related), rel: type(r), props: properties(r)}) AS patientEdges
+    
+    // Combine all edges
+    WITH doctorEdges + patientEdges AS allEdges
+    UNWIND allEdges AS edge
+    WITH edge WHERE edge.source IS NOT NULL
+    RETURN DISTINCT
+      edge.source AS source,
+      edge.target AS target,
+      edge.rel AS relationship,
+      edge.props AS props
+  `;
+
+  const [nodesResult, edgesResult] = await Promise.all([
+    runQuery(nodesQuery, { patientId }),
+    runQuery(edgesQuery, { patientId }),
+  ]);
+
+  // Process nodes
+  const nodes = nodesResult.map((record) => {
+    const props = record.props || {};
+    const label = props.name || props.patient_id || props.doctor_id || props.test_name || props.icd_code || record.id.slice(-6);
+    return { id: record.id, type: record.type, label, ...props };
+  });
+
+  // Process edges
+  const links = edgesResult.map((record) => ({
+    source: record.source,
+    target: record.target,
+    relationship: record.relationship,
+    ...(record.props || {}),
+  }));
+
+  // Count by type
+  const nodeTypes = nodes.reduce((acc, node) => {
+    acc[node.type] = (acc[node.type] || 0) + 1;
+    return acc;
+  }, {});
+
+  return { nodes, links, nodeTypes };
+}
+
 module.exports = {
+  // Doctor queries
+  getAllDoctors,
+  getDoctorById,
+  getDoctorPatients,
+  getAllPatients,
   // Patient queries
   getPatientProfile,
   getPatientDiseases,
@@ -178,6 +375,8 @@ module.exports = {
   getFullPatientProfile,
   // Graph visualization
   getAllNodesAndEdges,
+  getGraphByDoctor,
+  getGraphByPatient,
   // Drug interactions
   checkDrugInteractions,
 };

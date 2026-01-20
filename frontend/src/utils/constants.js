@@ -1,13 +1,7 @@
 /**
  * Application Constants
+ * Note: Doctors and patients are now fetched from the database
  */
-
-// Available patients
-export const PATIENTS = [
-  { id: 'P001', name: 'John Doe' },
-  { id: 'P002', name: 'Jane Smith' },
-  { id: 'P003', name: 'Robert Johnson' },
-];
 
 // User roles
 export const ROLES = {

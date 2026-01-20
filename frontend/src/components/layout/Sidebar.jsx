@@ -1,6 +1,6 @@
 /**
  * Sidebar Component
- * Main navigation and controls sidebar
+ * Main navigation and controls sidebar with dynamic doctor/patient selection
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,16 +9,28 @@ import { StatusIndicator } from '../common';
 
 /**
  * @param {object} props
- * @param {object} props.auth - Authentication state from useAuth hook
+ * @param {object} props.users - Users state from useUsers hook
  * @param {boolean} props.serverOnline - Server online status
  * @param {function} props.onQuickQuery - Callback for quick query selection
  */
-export function Sidebar({ auth, serverOnline, onQuickQuery }) {
+export function Sidebar({ users, serverOnline, onQuickQuery }) {
   const navigate = useNavigate();
-  const { role, userId, patientId, setRole, setUserId, setPatientId } = auth;
+  const { 
+    doctors, 
+    patients, 
+    selectedDoctor, 
+    selectedPatient, 
+    selectDoctor, 
+    selectPatient,
+    loading 
+  } = users;
 
-  const handleRoleChange = (e) => {
-    setRole(e.target.value);
+  const handleDoctorChange = (e) => {
+    selectDoctor(e.target.value);
+  };
+
+  const handlePatientChange = (e) => {
+    selectPatient(e.target.value);
   };
 
   return (
@@ -29,45 +41,68 @@ export function Sidebar({ auth, serverOnline, onQuickQuery }) {
         <h1>Med-Chat</h1>
       </div>
 
-      {/* Authentication Section */}
+      {/* Doctor Selection */}
       <div className="sidebar-section">
-        <h3>Authentication</h3>
+        <h3>👨‍⚕️ Select Doctor</h3>
         
         <div className="form-group">
-          <label htmlFor="role">I am a</label>
+          <label htmlFor="doctorId">Doctor</label>
           <select 
-            id="role" 
-            value={role} 
-            onChange={handleRoleChange}
+            id="doctorId" 
+            value={selectedDoctor?.id || ''} 
+            onChange={handleDoctorChange}
+            disabled={loading || doctors.length === 0}
           >
-            <option value="doctor">Doctor</option>
-            <option value="patient">Patient</option>
+            {loading ? (
+              <option>Loading...</option>
+            ) : doctors.length === 0 ? (
+              <option>No doctors available</option>
+            ) : (
+              doctors.map(doctor => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.name} - {doctor.specialty}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
+        {selectedDoctor && (
+          <div className="doctor-info">
+            <small>📧 {selectedDoctor.email}</small>
+          </div>
+        )}
+      </div>
+
+      {/* Patient Selection */}
+      <div className="sidebar-section">
+        <h3>👤 Select Patient</h3>
+        
         <div className="form-group">
-          <label htmlFor="userId">My ID</label>
-          <input 
-            type="text" 
-            id="userId" 
-            placeholder={role === 'doctor' ? 'e.g., D001' : 'e.g., P001'}
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-          />
+          <label htmlFor="patientId">Patient ({patients.length} patients)</label>
+          <select 
+            id="patientId"
+            value={selectedPatient?.id || ''}
+            onChange={handlePatientChange}
+            disabled={loading || patients.length === 0}
+          >
+            {loading ? (
+              <option>Loading...</option>
+            ) : patients.length === 0 ? (
+              <option>No patients for this doctor</option>
+            ) : (
+              patients.map(patient => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.id} - {patient.name}
+                </option>
+              ))
+            )}
+          </select>
         </div>
 
-        {role === 'doctor' && (
-          <div className="form-group">
-            <label htmlFor="patientId">Query Patient</label>
-            <select 
-              id="patientId"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-            >
-              <option value="P001">P001 - John Doe</option>
-              <option value="P002">P002 - Jane Smith</option>
-              <option value="P003">P003 - Robert Johnson</option>
-            </select>
+        {selectedPatient && (
+          <div className="patient-info">
+            <small>Age: {selectedPatient.age} | {selectedPatient.gender} | {selectedPatient.blood_type}</small>
           </div>
         )}
       </div>
@@ -75,7 +110,7 @@ export function Sidebar({ auth, serverOnline, onQuickQuery }) {
       {/* Quick Queries Section */}
       <div className="sidebar-section">
         <h3>Quick Queries</h3>
-        <QuickQueries onQuerySelect={onQuickQuery} />
+        <QuickQueries onQuerySelect={onQuickQuery} disabled={!selectedPatient} />
       </div>
 
       {/* Graph Visualization */}
@@ -83,9 +118,14 @@ export function Sidebar({ auth, serverOnline, onQuickQuery }) {
         <h3>Graph Visualization</h3>
         <button 
           className="visualize-btn"
-          onClick={() => navigate('/visualize')}
+          onClick={() => navigate('/visualize', { 
+            state: { 
+              doctorId: selectedDoctor?.id,
+              patientId: selectedPatient?.id 
+            } 
+          })}
         >
-          🕸️ Visualize Neo4j Graph
+          🕸️ Visualize Graph
         </button>
       </div>
 
